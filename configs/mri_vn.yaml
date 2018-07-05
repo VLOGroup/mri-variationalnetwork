@@ -1,0 +1,39 @@
+# network setup
+network:
+  # global config
+  num_stages: &numstages !!int 10
+  # padding
+  pad: 11
+  # convolution
+  num_filter: &numfilter !!int 24
+  filter_size: &filtersize !!int 11
+  # activation
+  num_weights: &numweights !!int 31
+  # This is related to the maximum value of the data. As the data
+  # normalization was changed to streamline the implementation, this
+  # range has changed, too. This is different to the paper.
+  vmin: &vmin !!float -1.0
+  vmax: &vmax !!float 1.0
+  # datatermweight
+  datatermweight_init: 1.0
+
+# regularizer setup
+reg:
+  activation1:
+      name: w1
+      num_stages: *numstages
+      num_weights: *numweights
+      num_filter: *numfilter
+      vmin: *vmin
+      vmax: *vmax
+      init_type: linear
+      init_scale: 0.04
+
+  filter1:
+      name: k1
+      num_stages: *numstages
+      features_in: 1
+      features_out: *numfilter
+      filter_size: *filtersize
+      prox_zero_mean: True
+      prox_norm: True

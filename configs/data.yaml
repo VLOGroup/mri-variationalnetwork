@@ -1,0 +1,14 @@
+# training data setup
+data_config:
+  dataset: [{'name' : 'coronal_pd_fs',
+           'patients': [1,2,3,4,5,6,7,8,9,10],
+           'start_slice': 11, 'end_slice': 30,
+           'mask': 'masks/COR_PD_FS_iPat4_masks.mat',
+           'eval_patients' : [11,12,13,14,15,16,17,18,19,20],
+           'eval_slices' : [22],
+           }]
+  normalization: max  # to streamline the implementation we normalize by the max value of the zero-filled recon
+  sampling_pattern: cartesian_with_os
+  sens_type: espirit
+  batch_size: 10
+  base_dir: ./data/knee/  # this path has to point to the downloaded Globus data

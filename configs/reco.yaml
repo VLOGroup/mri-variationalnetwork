@@ -1,0 +1,11 @@
+data_config:
+  dataset:
+    name: coronal_pd_fs
+    patient: 16
+    mask: masks/COR_PD_FS_iPat4_masks.mat
+    slice: 22
+  normalization: max
+  sampling_pattern: cartesian_with_os
+  sens_type: espirit
+  batch_size: 10
+  base_dir: ./data/knee   # this path has to point to the downloaded Globus data

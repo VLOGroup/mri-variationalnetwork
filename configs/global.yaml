@@ -1,0 +1,7 @@
+# global config
+global_config:
+  data_num_threads: 2
+  data_queue_capacity: 4
+  swap_memory: true
+  parallel_iterations: 1
+  tf_allow_gpu_growth: true

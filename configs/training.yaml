@@ -1,0 +1,13 @@
+# optimizer setup
+optimizer_config :
+    max_iter: 1000
+    max_bt_iter: 40
+    L_init: 1000
+    fixed_momentum: 0.7
+    reset_memory: !!null None
+
+# checkpoint setup
+checkpoint_config:
+    log_dir: logs/vnmri
+    summary_modulo: 100
+    save_modulo: 100
