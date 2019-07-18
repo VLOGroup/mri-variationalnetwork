@@ -25,7 +25,7 @@ This repository provides a tensorflow implementation used in our publications
 This framework requires Python 3 and the [tensorflow-icg](https://github.com/VLOGroup/tensorflow-icg) repository, which is forked from [Tensorflow]() and additionally provides custom operators, functions and classes to build and train the variational network (VN). Please follow the instructions there to correctly install `tensorflow-icg`.
 
 ## Data
-We hosted all data that we used for our experiments at [GLOBUS](https://www.globus.org/app/transfer?origin_id=92ca2774-5225-11e8-9056-0a6d4e044368&origin_path=%2F).
+We hosted all data that we used for our experiments at [GLOBUS](https://app.globus.org/file-manager?origin_id=15c7de28-a76b-11e9-821c-02b7a92d8e58&origin_path=%2F).
 
 Parameters used for training such as batch size, dataset, etc. can be configured in the file `configs/data.yaml`. The training uses a multi-threaded implementation
 for data loading. To adapt the number of threads used for training as well as
