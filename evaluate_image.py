@@ -10,6 +10,7 @@ import tensorflow as tf
 import numpy as np
 from mridata import VnMriReconstructionData
 import mriutils
+import icg
 
 parser = argparse.ArgumentParser(description='reconstruct a given image data using a model')
 parser.add_argument('image_config', type=str, help='config file for reconstruct')
@@ -22,13 +23,13 @@ if __name__ == '__main__':
     # parse the input arguments
     args = parser.parse_args()
     # image and model
-    data_config = tf.contrib.icg.utils.loadYaml(args.image_config, ['data_config'])
+    data_config = icg.utils.loadYaml(args.image_config, ['data_config'])
     model_name = args.model_name
 
     output_name = args.output_name
     epoch = args.epoch
 
-    checkpoint_config = tf.contrib.icg.utils.loadYaml(args.training_config, ['checkpoint_config'])
+    checkpoint_config = icg.utils.loadYaml(args.training_config, ['checkpoint_config'])
 
     all_models = glob.glob(checkpoint_config['log_dir'] + '/*')
     all_models = sorted([d.split('/')[-1] for d in all_models if os.path.isdir(d)])
@@ -40,7 +41,7 @@ if __name__ == '__main__':
     ckpt_dir = checkpoint_config['log_dir'] + '/' + model_name + '/checkpoints/'
     eval_output_dir = checkpoint_config['log_dir'] + '/' + model_name + '/test/'
 
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         try:
             # load from checkpoint if required
             epoch = vn.utils.loadCheckpoint(sess, ckpt_dir, epoch=epoch)
@@ -48,12 +49,12 @@ if __name__ == '__main__':
             print(traceback.print_exc())
 
         # extract operators and variables from the graph
-        u_op = tf.get_collection('u_op')[0]
-        u_var = tf.get_collection('u_var')
-        c_var = tf.get_collection('c_var')
-        m_var = tf.get_collection('m_var')
-        f_var = tf.get_collection('f_var')
-        g_var = tf.get_collection('g_var')
+        u_op = tf.compat.v1.get_collection('u_op')[0]
+        u_var = tf.compat.v1.get_collection('u_var')
+        c_var = tf.compat.v1.get_collection('c_var')
+        m_var = tf.compat.v1.get_collection('m_var')
+        f_var = tf.compat.v1.get_collection('f_var')
+        g_var = tf.compat.v1.get_collection('g_var')
 
         # create data object
         data = VnMriReconstructionData(data_config,

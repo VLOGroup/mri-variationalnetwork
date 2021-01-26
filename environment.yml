@@ -1,0 +1,19 @@
+name: mrivn
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.6
+  - h5py
+  - imageio
+  - matplotlib=3.1
+  - numpy
+  - pip
+  - pyyaml
+  - scikit-image
+  - scipy
+  - setuptools
+  - six
+  - wheel
+  - pip:
+    - tensorflow-gpu==1.15

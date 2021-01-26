@@ -2,10 +2,10 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-from tensorflow.contrib import icg
+import icg
 
 from . import proxmaps
-
+import optotf.activations
 
 def plt_act_function(x, phi):
     my_dpi = 96.
@@ -17,8 +17,8 @@ def plt_act_function(x, phi):
         for i in range(phi.shape[1]):
             ax.clear()
             ax.plot(x, phi[s, i, :])
-            if fig.canvas is None:
-                FigureCanvasAgg(fig)
+            #if fig.canvas is None:
+            FigureCanvasAgg(fig)
             fig.canvas.draw()
             img_data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
             img_data = img_data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
@@ -54,23 +54,20 @@ def add_activation_function_params(params, config):
     params.add(w, prox=prox_w)
 
     # add kernels to summary
-    with tf.variable_scope('activation_plot'):
+    with tf.compat.v1.variable_scope('activation_plot'):
         x_plt = np.linspace(config['vmin'], config['vmax'], 151, dtype=np.float32)
-        x_plt = x_plt[:, np.newaxis]
-        x_plt = np.tile(x_plt, (1, config['num_stages']*config['num_filter']))
+        x_plt = x_plt[np.newaxis, :]
+        x_plt = np.tile(x_plt, (config['num_stages']*config['num_filter'], 1))
         x_plt_tf = tf.constant(x_plt, name='x_plt')
 
-        w_r = tf.reshape(w, (config['num_stages']*config['num_filter'], config['num_weights']))
-
-        phi_plt_f = icg.activation_rbf(x_plt_tf, w_r,
-                                       v_min=config['vmin'], v_max=config['vmax'], num_weights=config['num_weights'],
-                                       feature_stride=1)
-        phi_plt = tf.reshape(tf.transpose(phi_plt_f, (1, 0)),
-                             (config['num_stages'], config['num_filter'], 151))
-        phi_img = tf.py_func(plt_act_function, [x_plt_tf[:, 0], phi_plt], tf.uint8)
+        w_r = tf.reshape(w, (config['num_stages'] * config['num_filter'], config['num_weights']))
+        phi_plt_f = optotf.activations._get_operator('rbf')(x_plt_tf, w_r,
+                                       vmin=config['vmin'], vmax=config['vmax'])
+        phi_plt = tf.reshape(phi_plt_f, (config['num_stages'], config['num_filter'], 151))
+        phi_img = tf.py_func(plt_act_function, [x_plt_tf[0], phi_plt], tf.uint8)
 
     for i in range(config['num_stages']):
-        tf.summary.image('phi_' + config['name'] + '_%d' % (i + 1), phi_img[i], max_outputs=config['num_filter'], collections=['images'])
+        tf.compat.v1.summary.image('phi_' + config['name'] + '_%d' % (i + 1), phi_img[i], max_outputs=config['num_filter'], collections=['images'])
 
 
 def add_convolution_params(params, const_params, config):
@@ -117,10 +114,10 @@ def add_convolution_params(params, const_params, config):
         k_img = tf.expand_dims(tf.expand_dims(k_img, -1), 0)
         return k_img
 
-    with tf.variable_scope('kernel_%s_summary' % config['name']):
+    with tf.compat.v1.variable_scope('kernel_%s_summary' % config['name']):
         for i in range(config['num_stages']):
-            tf.summary.image('%s_%d_real' % (config['name'], i + 1), get_kernel_img(tf.real(k[i])), collections=['images'])
-            tf.summary.image('%s_%d_imag' % (config['name'], i + 1), get_kernel_img(tf.imag(k[i])), collections=['images'])
+            tf.compat.v1.summary.image('%s_%d_real' % (config['name'], i + 1), get_kernel_img(tf.math.real(k[i])), collections=['images'])
+            tf.compat.v1.summary.image('%s_%d_imag' % (config['name'], i + 1), get_kernel_img(tf.math.imag(k[i])), collections=['images'])
 
 def add_dataterm_weights(params, config):
     lambda_init = 0.1
@@ -131,11 +128,11 @@ def add_dataterm_weights(params, config):
     lambdaa = tf.Variable(initial_value=lambda_0, dtype=tf.float32, name='lambda')
     # define constraints
     # positivity of lambda
-    with tf.variable_scope('prox_lambda'):
-        prox_lambda = tf.assign(lambdaa, tf.maximum(lambdaa, 0))
+    with tf.compat.v1.variable_scope('prox_lambda'):
+        prox_lambda = tf.compat.v1.assign(lambdaa, tf.maximum(lambdaa, 0))
 
     params.add(lambdaa, prox=prox_lambda)
 
     # add lambda plots to tf summary
     for i in range(config['num_stages']):
-        tf.summary.scalar('lambda%d' % (i + 1), lambdaa[i, 0], collections=['images'])
+        tf.compat.v1.summary.scalar('lambda%d' % (i + 1), lambdaa[i, 0], collections=['images'])

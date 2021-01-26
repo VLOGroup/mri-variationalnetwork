@@ -1,0 +1,6 @@
+*.png
+*.mat
+*.json
+logs/
+result*
+__pycache__

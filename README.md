@@ -21,8 +21,23 @@ This repository provides a tensorflow implementation used in our publications
 }
 ```
 
-## Requirements
-This framework requires Python 3 and the [tensorflow-icg](https://github.com/VLOGroup/tensorflow-icg) repository, which is forked from [Tensorflow]() and additionally provides custom operators, functions and classes to build and train the variational network (VN). Please follow the instructions there to correctly install `tensorflow-icg`.
+## Requirements (Update January 2021)
+~~This framework requires Python 3 and the [tensorflow-icg](https://github.com/VLOGroup/tensorflow-icg) repository, which is forked from [Tensorflow]() and additionally provides custom operators, functions and classes to build and train the variational network (VN). Please follow the instructions there to correctly install `tensorflow-icg`.~~
+
+We provide an environment file `environment.yml`. A new conda environment `mrivn` can be 
+created with 
+```
+conda env create -f environment.yml
+```
+The framework was tested with Tensorflow 1.15. This omits the self-written kernels for (i)fftshift in the previous `tensorflow-icg`.
+
+This framework requires the [optox](https://github.com/VLOGroup/optox) repository. Please follow the instructions there to correctly install optox. Optox needs to be configured with
+```
+mkdir build
+cd build
+cmake .. -DWITH_PYTHON=OFF -DWITH_PYTORCH=OFF -DWITH_TENSORFLOW=ON -DCMAKE_BUILD_TYPE=Release
+```
+Note: `optox` unittests do not support TF 1.x.
 
 ## Data
 We hosted all data that we used for our experiments at [GLOBUS](https://app.globus.org/file-manager?origin_id=15c7de28-a76b-11e9-821c-02b7a92d8e58&origin_path=%2F).

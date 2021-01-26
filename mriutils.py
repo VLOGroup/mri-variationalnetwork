@@ -4,7 +4,7 @@ sys.path.append('../')
 from scipy.io import savemat
 import os
 import matplotlib.pyplot as plt
-import scipy
+import imageio
 from skimage.measure import compare_ssim
 
 
@@ -112,7 +112,7 @@ def ksave(kspace, filepath):
     img = np.abs(kspace)
     img /= np.max(img)
     img = np.log(img + 1e-5)
-    scipy.misc.imsave(filepath, _normalize(img).astype(np.uint8))
+    imageio.imwrite(filepath, _normalize(img).astype(np.uint8))
 
 def imshow(img, title=""):
     """ Show image as grayscale. """
@@ -215,7 +215,7 @@ def imsave(img, filepath, normalize=True):
     if normalize:
         img = _normalize(img)
         img *= 255.0
-    scipy.misc.imsave(filepath, img.astype(np.uint8))
+    imageio.imwrite(filepath, img.astype(np.uint8))
 
 def imsaveDiff(img, maxIntensity, scale, filepath):
     """ Save difference image according to maxIntensity. Amplify difference by scale. """
@@ -232,7 +232,7 @@ def imsaveDiff(img, maxIntensity, scale, filepath):
     tmp *= scale
     tmp = np.minimum(tmp, 1) * 255.0
 
-    scipy.misc.imsave(filepath, tmp.astype(np.uint8))
+    imageio.imwrite(filepath, tmp.astype(np.uint8))
 
 def rmse(img, ref):
     """ Compute RMSE. If inputs are 3D, average over axis=0 """

@@ -24,7 +24,7 @@ class VnBasicData(object):
         if self._queue != None:
             raise ValueError('You are only allowed to set tf_dtype once!')
         self._tf_dtype = value
-        self._queue = tf.FIFOQueue(capacity=self._queue_capacity, dtypes=value)
+        self._queue = tf.queue.FIFOQueue(capacity=self._queue_capacity, dtypes=value)
         self._enqueue_op = self._queue.enqueue(self.tf_load())
         self._batch = self._queue.dequeue()
 

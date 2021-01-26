@@ -7,6 +7,7 @@ matplotlib.use('agg')
 import vn.visualization
 import tensorflow as tf
 import numpy as np
+import icg
 
 parser = argparse.ArgumentParser(description='plot parameters of a model')
 parser.add_argument('model_name', type=str, help='name of the model in the log dir')
@@ -20,7 +21,7 @@ if __name__ == '__main__':
     model_name = args.model_name
 
     # load the model
-    checkpoint_config = tf.contrib.icg.utils.loadYaml(args.training_config, ['checkpoint_config'])
+    checkpoint_config = icg.utils.loadYaml(args.training_config, ['checkpoint_config'])
 
     all_models = glob.glob(checkpoint_config['log_dir'] + '/*')
     all_models = sorted([d.split('/')[-1] for d in all_models if os.path.isdir(d)])
@@ -37,7 +38,7 @@ if __name__ == '__main__':
     network_config = None
     for config in configs:
         if 'network' in open(config).read():
-            network_config = tf.contrib.icg.utils.loadYaml(config, ['network'])
+            network_config = icg.utils.loadYaml(config, ['network'])
             break
 
     if network_config == None:
@@ -48,7 +49,7 @@ if __name__ == '__main__':
     if not os.path.exists(eval_output_dir):
         os.makedirs(eval_output_dir)
 
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         epoch = vn.utils.loadCheckpoint(sess, ckpt_dir, epoch=args.epoch)
 
         for var in tf.trainable_variables():

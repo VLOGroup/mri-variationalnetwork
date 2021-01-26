@@ -6,7 +6,7 @@ import vn
 import time
 import os
 
-import tensorflow.contrib.icg as icg
+import icg
 
 class VnMriFilenameProducer(object):
     """Filename Producer Class for MRI data. Based on the config, it generates a list of all files that should be used
@@ -50,7 +50,7 @@ class VnMriFilenameProducer(object):
         # dequeue operation returns int64 to identify [dataset, patient, slice] that should be loaded
         self.tf_dtype = [tf.int64, tf.int64, tf.int64]
         # setup queue
-        self.queue = tf.FIFOQueue(capacity=queue_capacity, dtypes = self.tf_dtype, shapes=[[],[],[]])
+        self.queue = tf.compat.v1.FIFOQueue(capacity=queue_capacity, dtypes = self.tf_dtype, shapes=[[],[],[]])
         self.enqueue_op = self.queue.enqueue_many(self.tf_load())
         self.dequeue_op = self.queue.dequeue_many(self.config['batch_size'])
 
@@ -142,18 +142,21 @@ class VnMriReconstructionData(vn.VnBasicData):
                               'sampling_mask' : m_var[0]
                               }
         else:
+            # get shape from a single input slice
+            f, c, input0, ref, mask, _ = self._load_single(self.data_config['dataset'][0], self.data_config['dataset'][0]['patients'][0], 1)
+
             # define inputs
-            self.u = tf.placeholder(shape=(None, None, None), dtype=tf.complex64, name='u')
+            self.u = tf.compat.v1.placeholder(shape=(None, *input0.shape), dtype=tf.complex64, name='u')
 
             # define constants
-            self.constants = {'f': tf.placeholder(shape=(None, None, None, None), dtype=tf.complex64, name='f'),
-                              'coil_sens': tf.placeholder(shape=(None, None, None, None), dtype=tf.complex64,
+            self.constants = {'f': tf.compat.v1.placeholder(shape=(None, *f.shape), dtype=tf.complex64, name='f'),
+                              'coil_sens': tf.compat.v1.placeholder(shape=(None, *c.shape), dtype=tf.complex64,
                                                           name='coil_sens'),
-                              'sampling_mask': tf.placeholder(shape=(None, None, None), dtype=tf.float32,
+                              'sampling_mask': tf.compat.v1.placeholder(shape=(None, *mask.shape), dtype=tf.float32,
                                                               name='sampling_mask')}
 
             # define the target
-            self.target = tf.placeholder(shape=(None, None, None), dtype=tf.complex64, name='g')
+            self.target = tf.compat.v1.placeholder(shape=(None, *ref.shape), dtype=tf.complex64, name='g')
 
         if load_eval_data:
             # create eval feed dict

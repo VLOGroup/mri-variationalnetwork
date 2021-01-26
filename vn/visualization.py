@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import matplotlib
+import optotf.activations
 
 def resizeKernel(kernel, scaling):
     kernel_shape = list(kernel.shape)
@@ -29,20 +30,16 @@ def saveSingleKernel(kernel, filename):
 
 def extractActivationFunctionParams(w, config):
     x_plt = np.linspace(config['vmin'], config['vmax'], 51, dtype=np.float32)
-    x_plt = x_plt[:, np.newaxis]
-    x_plt = np.tile(x_plt, (1, config['num_stages'] * config['num_filter']))
+    x_plt = x_plt[np.newaxis, :]
+    x_plt = np.tile(x_plt, (config['num_stages'] * config['num_filter'], 1))
     x_plt_tf = tf.constant(x_plt, name='x_plt')
 
-    phi_plt_f = tf.contrib.icg.activation_rbf(x_plt_tf,
-                                              tf.reshape(w, (
-                                              config['num_stages'] * config['num_filter'], config['num_weights'])),
-                                              v_min=config['vmin'], v_max=config['vmax'],
-                                              num_weights=config['num_weights'],
-                                              feature_stride=1)
-    phi_plt = tf.reshape(tf.transpose(phi_plt_f, (1, 0)),
-                         (config['num_stages'], config['num_filter'], 51))
-    x_plt = tf.reshape(tf.transpose(x_plt, (1, 0)),
-                       (config['num_stages'], config['num_filter'], 51))
+    w_r = tf.reshape(w, (config['num_stages'] * config['num_filter'], config['num_weights']))
+    phi_plt_f = optotf.activations._get_operator('rbf')(x_plt_tf,
+                                              w_r,
+                                              vmin=config['vmin'], vmax=config['vmax'])
+    phi_plt = tf.reshape(phi_plt_f, (config['num_stages'], config['num_filter'], 51))
+    x_plt = tf.reshape(x_plt, (config['num_stages'], config['num_filter'], 51))
     return x_plt[0, 0].eval(), phi_plt.eval()
 
 

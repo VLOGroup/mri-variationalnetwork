@@ -7,11 +7,12 @@ import argparse
 
 from mridata import VnMriReconstructionData, VnMriFilenameProducer
 
-import tensorflow.contrib.icg as icg
+import icg
+import optotf
 
-class VnMriReconstructionCell(tf.contrib.icg.VnBasicCell):
+class VnMriReconstructionCell(icg.VnBasicCell):
     def mriForwardOpWithOS(self, u, coil_sens, sampling_mask):
-        with tf.variable_scope('mriForwardOp'):
+        with tf.compat.v1.variable_scope('mriForwardOp'):
             # add frequency encoding oversampling
             pad_u = tf.cast(tf.multiply(tf.cast(tf.shape(sampling_mask)[1], tf.float32), 0.25) + 1, tf.int32)
             pad_l = tf.cast(tf.multiply(tf.cast(tf.shape(sampling_mask)[1], tf.float32), 0.25) - 1, tf.int32)
@@ -20,42 +21,42 @@ class VnMriReconstructionCell(tf.contrib.icg.VnBasicCell):
             # apply sensitivites
             coil_imgs = u_pad * coil_sens
             # centered Fourier transform
-            Fu = tf.contrib.icg.fftc2d(coil_imgs)
+            Fu = icg.fftc2d(coil_imgs)
             # apply sampling mask
             mask = tf.expand_dims(sampling_mask, axis=1)
-            kspace = tf.complex(tf.real(Fu) * mask, tf.imag(Fu) * mask)
+            kspace = tf.complex(tf.math.real(Fu) * mask, tf.math.imag(Fu) * mask)
         return kspace
 
     def mriAdjointOpWithOS(self, f, coil_sens, sampling_mask):
-        with tf.variable_scope('mriAdjointOp'):
+        with tf.compat.v1.variable_scope('mriAdjointOp'):
             # variables to remove frequency encoding oversampling
             pad_u = tf.cast(tf.multiply(tf.cast(tf.shape(sampling_mask)[1], tf.float32), 0.25) + 1, tf.int32)
             pad_l = tf.cast(tf.multiply(tf.cast(tf.shape(sampling_mask)[1], tf.float32), 0.25) - 1, tf.int32)
             # apply mask and perform inverse centered Fourier transform
             mask = tf.expand_dims(sampling_mask, axis=1)
-            Finv = tf.contrib.icg.ifftc2d(tf.complex(tf.real(f) * mask, tf.imag(f) * mask))
+            Finv = icg.ifftc2d(tf.complex(tf.math.real(f) * mask, tf.math.imag(f) * mask))
             # multiply coil images with sensitivities and sum up over channels
-            img = tf.reduce_sum(Finv * tf.conj(coil_sens), 1)[:, pad_u:-pad_l, :]
+            img = tf.reduce_sum(Finv * tf.math.conj(coil_sens), 1)[:, pad_u:-pad_l, :]
         return img
 
     def mriForwardOp(self, u, coil_sens, sampling_mask):
-        with tf.variable_scope('mriForwardOp'):
+        with tf.compat.v1.variable_scope('mriForwardOp'):
             # apply sensitivites
             coil_imgs = tf.expand_dims(u, axis=1) * coil_sens
             # centered Fourier transform
-            Fu = tf.contrib.icg.fftc2d(coil_imgs)
+            Fu = icg.fftc2d(coil_imgs)
             # apply sampling mask
             mask = tf.expand_dims(sampling_mask, axis=1)
-            kspace = tf.complex(tf.real(Fu) * mask, tf.imag(Fu) * mask)
+            kspace = tf.complex(tf.math.real(Fu) * mask, tf.math.imag(Fu) * mask)
         return kspace
 
     def mriAdjointOp(self, f, coil_sens, sampling_mask):
-        with tf.variable_scope('mriAdjointOp'):
+        with tf.compat.v1.variable_scope('mriAdjointOp'):
             # apply mask and perform inverse centered Fourier transform
             mask = tf.expand_dims(sampling_mask, axis=1)
-            Finv = tf.contrib.icg.ifftc2d(tf.complex(tf.real(f) * mask, tf.imag(f) * mask))
+            Finv = icg.ifftc2d(tf.complex(tf.math.real(f) * mask, tf.math.imag(f) * mask))
             # multiply coil images with sensitivities and sum up over channels
-            img = tf.reduce_sum(Finv * tf.conj(coil_sens), 1)
+            img = tf.reduce_sum(Finv * tf.math.conj(coil_sens), 1)
         return img
 
     def call(self, t, inputs):
@@ -83,22 +84,26 @@ class VnMriReconstructionCell(tf.contrib.icg.VnBasicCell):
         pad = self._options['pad']
 
         # split kernels
-        k_real = tf.real(k)
-        k_imag = tf.imag(k)
+        k_real = tf.math.real(k)
+        k_imag = tf.math.imag(k)
 
         # define the cell
         # pad the image to avoid problems at the border
         u_p = tf.pad(tf.expand_dims(u_t_1,-1), [[0, 0], [pad, pad], [pad, pad], [0, 0]], 'SYMMETRIC')
         # split the image in real and imaginary part and perform convolution
-        u_k_real = tf.nn.conv2d(tf.real(u_p), k_real, [1, 1, 1, 1], 'SAME')
-        u_k_imag = tf.nn.conv2d(tf.imag(u_p), k_imag, [1, 1, 1, 1], 'SAME')
+        u_k_real = tf.nn.conv2d(tf.math.real(u_p), k_real, [1, 1, 1, 1], 'SAME')
+        u_k_imag = tf.nn.conv2d(tf.math.imag(u_p), k_imag, [1, 1, 1, 1], 'SAME')
         # add up the convolution results
         u_k = u_k_real + u_k_imag
         # apply the activation functions
-        f_u_k = icg.activation_rbf(u_k, w, v_min=vmin, v_max=vmax, num_weights=w.shape[1], feature_stride=1)
+        shape = tf.shape(u_k)
+        u_k = tf.transpose(tf.reshape(u_k, (-1, tf.shape(u_k)[-1])), [1, 0])
+        u_k = tf.reshape(u_k, (tf.shape(u_k)[0], -1))
+        f_u_k = optotf.activations._get_operator('rbf')(u_k, w, vmin=vmin, vmax=vmax)
+        f_u_k = tf.reshape(tf.transpose(tf.reshape(f_u_k, tf.shape(u_k)), [1, 0]), shape)
         # perform transpose convolution for real and imaginary part
-        u_k_T_real = tf.nn.conv2d_transpose(f_u_k, tf.real(k), tf.shape(u_p), [1, 1, 1, 1], 'SAME')
-        u_k_T_imag= tf.nn.conv2d_transpose(f_u_k, tf.imag(k), tf.shape(u_p), [1, 1, 1, 1], 'SAME')
+        u_k_T_real = tf.nn.conv2d_transpose(f_u_k, tf.math.real(k), tf.shape(u_p), [1, 1, 1, 1], 'SAME')
+        u_k_T_imag = tf.nn.conv2d_transpose(f_u_k, tf.math.imag(k), tf.shape(u_p), [1, 1, 1, 1], 'SAME')
         # rebuild complex image
         u_k_T = tf.complex(u_k_T_real, u_k_T_imag)
         # remove padding
@@ -122,7 +127,7 @@ class VnMriReconstructionCell(tf.contrib.icg.VnBasicCell):
         # build dataterm
         Au = forwardOp(u_t_1, c, m)
         At_Au_f = adjointOp(Au - f, c, m)
-        Du = tf.complex(tf.real(At_Au_f)*lambdaa, tf.imag(At_Au_f)*lambdaa)
+        Du = tf.complex(tf.math.real(At_Au_f)*lambdaa, tf.math.imag(At_Au_f)*lambdaa)
 
         # gradient step
         u_t = u_t_1 - Ru - Du
@@ -140,13 +145,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load the configs
-    network_config, reg_config = tf.contrib.icg.utils.loadYaml(args.network_config, ['network', 'reg'])
-    checkpoint_config, optimizer_config = tf.contrib.icg.utils.loadYaml(args.training_config, ['checkpoint_config', 'optimizer_config'])
-    data_config = tf.contrib.icg.utils.loadYaml(args.data_config, ['data_config'])
-    global_config = tf.contrib.icg.utils.loadYaml(args.global_config, ['global_config'])
+    network_config, reg_config = icg.utils.loadYaml(args.network_config, ['network', 'reg'])
+    checkpoint_config, optimizer_config = icg.utils.loadYaml(args.training_config, ['checkpoint_config', 'optimizer_config'])
+    data_config = icg.utils.loadYaml(args.data_config, ['data_config'])
+    global_config = icg.utils.loadYaml(args.global_config, ['global_config'])
 
     # Tensorflow config
-    tf_config = tf.ConfigProto(log_device_placement=False)
+    tf_config = tf.compat.v1.ConfigProto(log_device_placement=False)
     tf_config.gpu_options.allow_growth = global_config['tf_allow_gpu_growth']
 
     # define the output locations
@@ -169,8 +174,8 @@ if __name__ == '__main__':
     coord = tf.train.Coordinator()
 
     # define parameters
-    params = tf.contrib.icg.utils.Params()
-    const_params = tf.contrib.icg.utils.ConstParams()
+    params = icg.utils.Params()
+    const_params = icg.utils.ConstParams()
 
     vn.paramdefinitions.add_convolution_params(params, const_params, reg_config['filter1'])
     vn.paramdefinitions.add_activation_function_params(params, reg_config['activation1'])
@@ -183,7 +188,7 @@ if __name__ == '__main__':
                               constants=data.constants,
                               options=network_config)
 
-    mrirecon_vn = tf.contrib.icg.VariationalNetwork(cell=vn_cell,
+    mrirecon_vn = icg.VariationalNetwork(cell=vn_cell,
                                         num_stages=network_config['num_stages'],
                                         parallel_iterations=global_config['parallel_iterations'],
                                         swap_memory=global_config['swap_memory'])
@@ -193,16 +198,16 @@ if __name__ == '__main__':
     u_T = tf.identity(u_all[-1], 'u_T')
 
     # define loss
-    with tf.variable_scope('loss'):
+    with tf.compat.v1.variable_scope('loss'):
         # mse abs-smoothed
-        target_abs = tf.sqrt(tf.real((data.target) * tf.conj(data.target)) + 1e-12)
-        output_abs = tf.sqrt(tf.real((u_T) * tf.conj(u_T)) + 1e-12)
+        target_abs = tf.sqrt(tf.math.real((data.target) * tf.math.conj(data.target)) + 1e-12)
+        output_abs = tf.sqrt(tf.math.real((u_T) * tf.math.conj(u_T)) + 1e-12)
 
         energy = tf.reduce_mean(tf.reduce_sum(((output_abs - target_abs) ** 2), axis=(1, 2)))
 
         # rmse
-        denominator = tf.reduce_sum(tf.real((data.target) * tf.conj(data.target)), axis=(1, 2))
-        nominator = tf.reduce_sum(tf.real((u_T - data.target) * tf.conj(u_T - data.target)), axis=(1, 2))
+        denominator = tf.reduce_sum(tf.math.real((data.target) * tf.math.conj(data.target)), axis=(1, 2))
+        nominator = tf.reduce_sum(tf.math.real((u_T - data.target) * tf.math.conj(u_T - data.target)), axis=(1, 2))
         rmse = tf.reduce_mean(tf.sqrt(nominator / denominator))
 
         # ssim
@@ -213,52 +218,52 @@ if __name__ == '__main__':
         ssim = vn.utils.ssim(output_abs, target_abs, L=L)
 
     # add images and energy to summary
-    with tf.variable_scope('loss_summary'):
-        tf.summary.scalar('energy', energy)
-        tf.summary.scalar('rmse', rmse)
-        tf.summary.scalar('ssim', ssim)
+    with tf.compat.v1.variable_scope('loss_summary'):
+        tf.compat.v1.summary.scalar('energy', energy)
+        tf.compat.v1.summary.scalar('rmse', rmse)
+        tf.compat.v1.summary.scalar('ssim', ssim)
 
     # add images to tensorboard
-    tf.summary.image('input', tf.abs(tf.expand_dims(data.u, -1)), max_outputs=10)
+    tf.compat.v1.summary.image('input', tf.abs(tf.expand_dims(data.u, -1)), max_outputs=10)
     for i in range(network_config['num_stages']):
-        tf.summary.image('u%d' % (i + 1), tf.abs(tf.expand_dims(u_all[i + 1], -1)), max_outputs=10)
-    tf.summary.image('target', tf.abs(tf.expand_dims(data.target, -1)), max_outputs=10)
+        tf.compat.v1.summary.image('u%d' % (i + 1), tf.abs(tf.expand_dims(u_all[i + 1], -1)), max_outputs=10)
+    tf.compat.v1.summary.image('target', tf.abs(tf.expand_dims(data.target, -1)), max_outputs=10)
 
     # define the optimizer
     optimizer = icg.optimizer.IPALMOptimizer(params, energy, optimizer_config)
 
-    with tf.Session(config=tf_config) as sess:
+    with tf.compat.v1.Session(config=tf_config) as sess:
         # initialize the variables
-        init = tf.global_variables_initializer()
+        init = tf.compat.v1.global_variables_initializer()
         sess.run(init)
 
         # memorize a few ops and placeholders to be used in evaluation
-        energy_op = tf.add_to_collection('energy_op', energy)
-        ssim_op = tf.add_to_collection('ssim_op', ssim)
-        rmse_op = tf.add_to_collection('rmse_op', rmse)
-        u_op = tf.add_to_collection('u_op', u_all[-1])
-        u_all_op = tf.add_to_collection('u_all_op', u_all)
-        u_var = tf.add_to_collection('u_var', data.u)
-        g_var = tf.add_to_collection('g_var', data.target)
-        c_var = tf.add_to_collection('c_var', data.constants['coil_sens'])
-        m_var = tf.add_to_collection('m_var', data.constants['sampling_mask'])
-        f_var = tf.add_to_collection('f_var', data.constants['f'])
-        g_var = tf.add_to_collection('g_var', data.target)
+        energy_op = tf.compat.v1.add_to_collection('energy_op', energy)
+        ssim_op = tf.compat.v1.add_to_collection('ssim_op', ssim)
+        rmse_op = tf.compat.v1.add_to_collection('rmse_op', rmse)
+        u_op = tf.compat.v1.add_to_collection('u_op', u_all[-1])
+        u_all_op = tf.compat.v1.add_to_collection('u_all_op', u_all)
+        u_var = tf.compat.v1.add_to_collection('u_var', data.u)
+        g_var = tf.compat.v1.add_to_collection('g_var', data.target)
+        c_var = tf.compat.v1.add_to_collection('c_var', data.constants['coil_sens'])
+        m_var = tf.compat.v1.add_to_collection('m_var', data.constants['sampling_mask'])
+        f_var = tf.compat.v1.add_to_collection('f_var', data.constants['f'])
+        g_var = tf.compat.v1.add_to_collection('g_var', data.target)
 
         # load from checkpoint if required
-        saver = tf.train.Saver(max_to_keep=0)
+        saver = tf.compat.v1.train.Saver(max_to_keep=0)
 
         # initialize enqueuing threads
         enqueue_threads_filename_producer = qr_filenames.create_threads(sess, coord=coord, start=True)
         enqueue_threads_data = qr_data.create_threads(sess, coord=coord, start=True)
 
         # collect the summaries
-        epoch_summaries = tf.summary.merge_all()
-        image_summaries = tf.summary.merge_all(key='images')
-        train_writer = tf.summary.FileWriter(checkpoint_config['log_dir'] + '/' + suffix + '/train/', sess.graph)
+        epoch_summaries = tf.compat.v1.summary.merge_all()
+        image_summaries = tf.compat.v1.summary.merge_all(key='images')
+        train_writer = tf.compat.v1.summary.FileWriter(checkpoint_config['log_dir'] + '/' + suffix + '/train/', sess.graph)
 
-        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-        run_metadata = tf.RunMetadata()
+        run_options = tf.compat.v1.RunOptions(trace_level=tf.compat.v1.RunOptions.FULL_TRACE)
+        run_metadata = tf.compat.v1.RunMetadata()
 
         iter_per_epoch = filename_producer.iter_per_epoch
 

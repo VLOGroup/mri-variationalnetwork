@@ -10,6 +10,7 @@ import traceback
 
 from mridata import VnMriReconstructionData
 import mriutils
+import icg
 
 if __name__ == '__main__':
 
@@ -19,8 +20,8 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=None) # takes the last available epoch
 
     args = parser.parse_args()
-    checkpoint_config = tf.contrib.icg.utils.loadYaml(args.training_config, ['checkpoint_config'])
-    data_config = tf.contrib.icg.utils.loadYaml(args.data_config, ['data_config'])
+    checkpoint_config = icg.utils.loadYaml(args.training_config, ['checkpoint_config'])
+    data_config = icg.utils.loadYaml(args.data_config, ['data_config'])
 
     eval_datasets = data_config['dataset']
 
@@ -39,7 +40,7 @@ if __name__ == '__main__':
         ckpt_dir = checkpoint_config['log_dir'] + '/' + suffix + '/checkpoints/'
         eval_output_dir = checkpoint_config['log_dir'] + '/' + suffix + '/test/'
 
-        with tf.Session() as sess:
+        with tf.compat.v1.Session() as sess:
             try:
                 # load from checkpoint if required
                 epoch = vn.utils.loadCheckpoint(sess, ckpt_dir, epoch=args.epoch)
@@ -48,12 +49,12 @@ if __name__ == '__main__':
                 continue
 
             # extract a few ops and variables to be used in evaluation
-            u_op = tf.get_collection('u_op')[0]
-            u_var = tf.get_collection('u_var')
-            g_var = tf.get_collection('g_var')
-            c_var = tf.get_collection('c_var')
-            m_var = tf.get_collection('m_var')
-            f_var = tf.get_collection('f_var')
+            u_op = tf.compat.v1.get_collection('u_op')[0]
+            u_var = tf.compat.v1.get_collection('u_var')
+            g_var = tf.compat.v1.get_collection('g_var')
+            c_var = tf.compat.v1.get_collection('c_var')
+            m_var = tf.compat.v1.get_collection('m_var')
+            f_var = tf.compat.v1.get_collection('f_var')
 
             # create data object
             data = VnMriReconstructionData(data_config,
